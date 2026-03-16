@@ -1,0 +1,100 @@
+
+=======================================================================
+  BulletFarm Agent Operator {{ .Chart.Version }}
+=======================================================================
+
+The operator has been deployed to namespace: {{ .Release.Namespace }}
+
+{{- if .Values.serviceAccount.create }}
+Service Account: {{ include "agent-operator.serviceAccountName" . }}
+{{- end }}
+
+{{- if .Values.leaderElection.enabled }}
+Leader Election: ENABLED (safe for multi-replica HA)
+{{- else }}
+Leader Election: DISABLED (single-replica mode)
+{{- end }}
+
+{{- if .Values.metrics.enabled }}
+Metrics: {{ .Values.metrics.bindAddress }} (secure={{ .Values.metrics.secure }})
+{{- else }}
+Metrics: DISABLED
+{{- end }}
+
+-----------------------------------------------------------------------
+  SECRETS
+-----------------------------------------------------------------------
+{{- if .Values.createSecret.enabled }}
+A Kubernetes Secret "{{ .Values.secretName }}" was created from values.
+WARNING: Storing secrets in Helm values is NOT recommended for production.
+Consider using an external secrets operator (e.g. ESO, Vault).
+{{- else }}
+The operator expects a Secret named "{{ .Values.secretName }}" with keys:
+  - github-token      (required)
+  - openai-api-key    (optional, for OpenAI provider)
+  - ollama-base-url   (optional, for Ollama provider)
+
+Create it with:
+  kubectl create secret generic {{ .Values.secretName }} \
+    --namespace {{ .Release.Namespace }} \
+    --from-literal=github-token=ghp_xxx \
+    --from-literal=openai-api-key=sk-xxx
+{{- end }}
+
+-----------------------------------------------------------------------
+  AGENTS
+-----------------------------------------------------------------------
+{{- if .Values.agents }}
+{{ len .Values.agents }} Agent(s) created:
+{{- range $name, $agent := .Values.agents }}
+  - {{ $name }} → {{ $agent.repository }}
+{{- end }}
+
+List agents:
+  kubectl get agents -n {{ .Release.Namespace }}
+{{- else }}
+No agents were created. Define agents in values.yaml:
+
+  agents:
+    my-agent:
+      repository: "myorg/myrepo"
+      workerImage: "bulletfarm/worker:latest"
+      defaultSkills:
+        - code-edit
+        - testing
+
+Or create them manually:
+  kubectl apply -f my-agent.yaml
+{{- end }}
+
+{{- if .Values.agentTasks }}
+
+-----------------------------------------------------------------------
+  AGENT TASKS
+-----------------------------------------------------------------------
+{{ len .Values.agentTasks }} AgentTask(s) created:
+{{- range $name, $task := .Values.agentTasks }}
+  - {{ $name }} → agent={{ $task.agentRef }}
+{{- end }}
+
+List tasks:
+  kubectl get agenttasks -n {{ .Release.Namespace }}
+{{- end }}
+
+-----------------------------------------------------------------------
+  USEFUL COMMANDS
+-----------------------------------------------------------------------
+  # Check operator logs
+  kubectl logs -n {{ .Release.Namespace }} -l control-plane=controller-manager -f
+
+  # List agents and their status
+  kubectl get agents -n {{ .Release.Namespace }}
+
+  # List tasks and their progress
+  kubectl get agenttasks -n {{ .Release.Namespace }}
+
+  # Watch task progress
+  kubectl get agenttasks -n {{ .Release.Namespace }} -w
+
+  # Describe a specific task
+  kubectl describe agenttask <task-name> -n {{ .Release.Namespace }}

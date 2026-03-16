@@ -1,0 +1,89 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: agenttasks.agents.bulletfarm.io
+spec:
+  group: agents.bulletfarm.io
+  names:
+    kind: AgentTask
+    listKind: AgentTaskList
+    plural: agenttasks
+    singular: agenttask
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.agentRef
+      name: Agent
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.progress
+      name: Progress
+      type: integer
+    - jsonPath: .status.pullRequestURL
+      name: PR
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              agentRef:
+                type: string
+              description:
+                type: string
+              maxRetries:
+                type: integer
+              prompt:
+                type: string
+              skills:
+                items:
+                  type: string
+                type: array
+              targetBranch:
+                type: string
+            required:
+            - agentRef
+            - prompt
+            type: object
+          status:
+            properties:
+              completedAt:
+                format: date-time
+                type: string
+              lastFailureReason:
+                type: string
+              message:
+                type: string
+              phase:
+                type: string
+              prState:
+                type: string
+              progress:
+                type: integer
+              pullRequestURL:
+                type: string
+              retryCount:
+                type: integer
+              startedAt:
+                format: date-time
+                type: string
+              workerPod:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

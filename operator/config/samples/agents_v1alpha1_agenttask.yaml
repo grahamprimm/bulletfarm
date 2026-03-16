@@ -1,0 +1,15 @@
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: add-pagination
+spec:
+  agentRef: "github-agent"
+  description: "Add cursor-based pagination to the API"
+  prompt: "Add cursor-based pagination to the REST API endpoints in src/api/. Create proper tests for the pagination logic."
+  targetBranch: "feature/add-pagination"
+  skills:
+    - code-edit
+    - testing

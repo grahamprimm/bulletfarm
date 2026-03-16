@@ -1,0 +1,50 @@
+apiVersion: v2
+name: bulletfarm-operator
+description: BulletFarm Agent Operator — orchestrates LangChain AI agent workers on Kubernetes
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+kubeVersion: ">=1.26.0-0"
+home: https://github.com/grahamprimm/bulletfarm
+sources:
+- https://github.com/grahamprimm/bulletfarm
+keywords:
+- kubernetes
+- operator
+- langchain
+- ai-agents
+- github
+- llm
+- elasticsearch
+- controller-runtime
+maintainers:
+- name: grahamprimm
+annotations:
+  artifacthub.io/category: ai-machine-learning
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Seamless Upgrades
+  artifacthub.io/crds: |
+    - kind: Agent
+      version: v1alpha1
+      name: agents.agents.bulletfarm.io
+      description: Defines an AI agent bound to a GitHub repository
+    - kind: AgentTask
+      version: v1alpha1
+      name: agenttasks.agents.bulletfarm.io
+      description: Defines a task for an agent to execute via a worker pod
+  artifacthub.io/crdsExamples: |
+    - apiVersion: agents.bulletfarm.io/v1alpha1
+      kind: Agent
+      metadata:
+        name: my-agent
+      spec:
+        repository: "myorg/myrepo"
+        workerImage: "bulletfarm/worker:latest"
+        defaultSkills:
+          - code-edit
+          - testing
+        config:
+          llmProvider: openai
+          llmModel: gpt-4o-mini
+          elasticsearchURL: "http://elasticsearch-master:9200"

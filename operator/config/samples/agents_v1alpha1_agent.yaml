@@ -1,0 +1,19 @@
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: Agent
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: github-agent
+spec:
+  repository: "grahamprimm/bulletfarm-test-repo-alpha"
+  branch: "main"
+  workerImage: "bulletfarm/worker:latest"
+  defaultSkills:
+    - code-edit
+    - testing
+    - documentation
+  config:
+    llmProvider: "openai"
+    llmModel: "gpt-4o-mini"
+    elasticsearchURL: "http://elasticsearch-master:9200"

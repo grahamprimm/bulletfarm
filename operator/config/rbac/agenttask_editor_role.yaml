@@ -1,0 +1,27 @@
+# permissions for end users to edit agenttasks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: operator
+    app.kubernetes.io/managed-by: kustomize
+  name: agenttask-editor-role
+rules:
+- apiGroups:
+  - agents.bulletfarm.io
+  resources:
+  - agenttasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - agents.bulletfarm.io
+  resources:
+  - agenttasks/status
+  verbs:
+  - get

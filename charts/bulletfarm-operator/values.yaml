@@ -1,0 +1,385 @@
+# =============================================================================
+# BulletFarm Agent Operator — Production Helm Values
+# =============================================================================
+
+# -- Number of operator replicas. Use 2+ with leaderElection for HA.
+replicaCount: 1
+
+# ---------------------------------------------------------------------------
+# Operator container image
+# ---------------------------------------------------------------------------
+image:
+  # -- Operator image repository
+  repository: bulletfarm/operator
+  # -- Operator image tag (defaults to Chart appVersion)
+  tag: ""
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Global image pull secrets (applied to operator and worker pods)
+imagePullSecrets: []
+#  - name: my-registry-secret
+
+# -- Override the release name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Worker image defaults (used by Agent CRs when not overridden per-agent)
+# ---------------------------------------------------------------------------
+workerImage:
+  # -- Default worker image repository
+  repository: bulletfarm/worker
+  # -- Default worker image tag
+  tag: latest
+  # -- Default worker image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Default worker pod resource requests/limits (applied to all agents unless overridden)
+workerResources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Service account
+# ---------------------------------------------------------------------------
+serviceAccount:
+  # -- Create a service account for the operator
+  create: true
+  # -- Service account name (generated if empty)
+  name: ""
+  # -- Annotations to add to the service account (e.g. for IRSA / Workload Identity)
+  annotations: {}
+  # -- Automount the service account token
+  automountServiceAccountToken: true
+
+# ---------------------------------------------------------------------------
+# RBAC
+# ---------------------------------------------------------------------------
+rbac:
+  # -- Create ClusterRole and ClusterRoleBinding for the operator
+  create: true
+
+# ---------------------------------------------------------------------------
+# Leader election (required for multi-replica HA)
+# ---------------------------------------------------------------------------
+leaderElection:
+  # -- Enable leader election
+  enabled: false
+  # -- Leader election resource name
+  resourceName: "operator.bulletfarm.io"
+
+# ---------------------------------------------------------------------------
+# Health probes
+# ---------------------------------------------------------------------------
+healthProbe:
+  # -- Port for liveness and readiness probes
+  port: 8081
+  liveness:
+    # -- Initial delay before liveness probe starts
+    initialDelaySeconds: 15
+    # -- Period between liveness probes
+    periodSeconds: 20
+    # -- Failure threshold before pod is restarted
+    failureThreshold: 3
+  readiness:
+    # -- Initial delay before readiness probe starts
+    initialDelaySeconds: 5
+    # -- Period between readiness probes
+    periodSeconds: 10
+    # -- Failure threshold before pod is marked unready
+    failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# Metrics & monitoring
+# ---------------------------------------------------------------------------
+metrics:
+  # -- Enable the metrics endpoint
+  enabled: false
+  # -- Metrics bind address (use :8443 for HTTPS, :8080 for HTTP, 0 to disable)
+  bindAddress: ":8443"
+  # -- Serve metrics over HTTPS
+  secure: true
+
+  service:
+    # -- Create a Service for the metrics endpoint
+    enabled: true
+    # -- Metrics service port
+    port: 8443
+    # -- Metrics service annotations
+    annotations: {}
+
+  serviceMonitor:
+    # -- Create a Prometheus ServiceMonitor
+    enabled: false
+    # -- Namespace for the ServiceMonitor (defaults to release namespace)
+    namespace: ""
+    # -- Scrape interval
+    interval: 30s
+    # -- Scrape timeout
+    scrapeTimeout: 10s
+    # -- Additional labels for the ServiceMonitor
+    labels: {}
+    # -- Metric relabeling configs
+    metricRelabelings: []
+    # -- Relabeling configs
+    relabelings: []
+    # -- Scheme (https if metrics.secure is true)
+    scheme: ""
+    # -- TLS config for scraping
+    tlsConfig: {}
+
+# ---------------------------------------------------------------------------
+# Operator pod resources
+# ---------------------------------------------------------------------------
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+# ---------------------------------------------------------------------------
+# Pod scheduling
+# ---------------------------------------------------------------------------
+
+# -- Node selector for the operator pod
+nodeSelector: {}
+
+# -- Tolerations for the operator pod
+tolerations: []
+
+# -- Affinity rules for the operator pod
+affinity: {}
+
+# -- Topology spread constraints for the operator pod
+topologySpreadConstraints: []
+
+# -- Priority class name for the operator pod
+priorityClassName: ""
+
+# ---------------------------------------------------------------------------
+# Pod disruption budget
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  # -- Create a PodDisruptionBudget
+  enabled: false
+  # -- Minimum available pods (mutually exclusive with maxUnavailable)
+  minAvailable: 1
+  # -- Maximum unavailable pods
+  # maxUnavailable: 1
+
+# ---------------------------------------------------------------------------
+# Network policy
+# ---------------------------------------------------------------------------
+networkPolicy:
+  # -- Create a NetworkPolicy for the operator
+  enabled: false
+  # -- Additional ingress rules
+  additionalIngress: []
+  # -- Additional egress rules
+  additionalEgress: []
+
+# ---------------------------------------------------------------------------
+# Security context
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - "ALL"
+
+# ---------------------------------------------------------------------------
+# Pod metadata
+# ---------------------------------------------------------------------------
+
+# -- Additional labels for the operator pod
+podLabels: {}
+
+# -- Additional annotations for the operator pod
+podAnnotations: {}
+
+# -- Termination grace period for the operator pod
+terminationGracePeriodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Operator extra configuration
+# ---------------------------------------------------------------------------
+
+# -- Extra environment variables for the operator container
+extraEnv: []
+#  - name: MY_VAR
+#    value: "my-value"
+
+# -- Extra environment variables from secrets/configmaps
+extraEnvFrom: []
+#  - secretRef:
+#      name: my-secret
+
+# -- Extra volume mounts for the operator container
+extraVolumeMounts: []
+
+# -- Extra volumes for the operator pod
+extraVolumes: []
+
+# -- Extra args passed to the operator binary
+extraArgs: []
+
+# ---------------------------------------------------------------------------
+# Webhook configuration
+# ---------------------------------------------------------------------------
+webhook:
+  # -- Enable admission webhooks
+  enabled: false
+  # -- Webhook certificate directory
+  certDir: ""
+  # -- Webhook certificate file name
+  certName: "tls.crt"
+  # -- Webhook key file name
+  keyName: "tls.key"
+  # -- Webhook service port
+  port: 9443
+
+# ---------------------------------------------------------------------------
+# Elasticsearch connection
+# ---------------------------------------------------------------------------
+elasticsearch:
+  # -- Elasticsearch URL for agent memory
+  url: "http://elasticsearch-master:9200"
+
+# ---------------------------------------------------------------------------
+# LLM defaults (applied to agents that don't specify their own)
+# ---------------------------------------------------------------------------
+llm:
+  # -- Default LLM provider (openai, ollama)
+  provider: "openai"
+  # -- Default LLM model
+  model: "gpt-4o-mini"
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+
+# -- Name of the Kubernetes Secret containing API keys and tokens.
+# The secret must contain the following keys:
+#   - github-token: GitHub personal access token
+#   - openai-api-key: OpenAI API key (optional, required if llm.provider=openai)
+#   - ollama-base-url: Ollama base URL (optional, required if llm.provider=ollama)
+#
+# Create with:
+#   kubectl create secret generic bulletfarm-secrets \
+#     --from-literal=github-token=ghp_xxx \
+#     --from-literal=openai-api-key=sk-xxx
+secretName: bulletfarm-secrets
+
+# -- Create the secret from values (NOT recommended for production — use external secrets operator)
+createSecret:
+  # -- Whether to create the secret from these values
+  enabled: false
+  # -- GitHub personal access token
+  githubToken: ""
+  # -- OpenAI API key
+  openaiApiKey: ""
+  # -- Ollama base URL
+  ollamaBaseUrl: ""
+
+# ---------------------------------------------------------------------------
+# CRD management
+# ---------------------------------------------------------------------------
+
+# -- Install CRDs with the chart. Set to false if managing CRDs separately
+# or using `helm install --skip-crds`.
+installCRDs: true
+
+# ---------------------------------------------------------------------------
+# Agent definitions
+# ---------------------------------------------------------------------------
+# Define Agent custom resources to be created with the chart.
+# Each entry creates an agents.bulletfarm.io/v1alpha1 Agent CR.
+#
+# Example:
+#   agents:
+#     my-agent:
+#       repository: "myorg/myrepo"
+#       branch: "main"
+#       workerImage: "bulletfarm/worker:latest"
+#       defaultSkills:
+#         - code-edit
+#         - testing
+#       config:
+#         llmProvider: openai
+#         llmModel: gpt-4o-mini
+#         elasticsearchURL: "http://elasticsearch-master:9200"
+#       labels: {}
+#       annotations: {}
+#
+# Fields:
+#   repository    (required) - GitHub repository (org/repo or full URL)
+#   branch        (optional) - Target branch, defaults to "main"
+#   workerImage   (optional) - Override the global workerImage for this agent
+#   workerTag     (optional) - Override the global workerImage tag for this agent
+#   defaultSkills (optional) - List of skills loaded for every task
+#   config        (optional) - Agent-specific LLM/ES configuration
+#     llmProvider       - Override global llm.provider
+#     llmModel          - Override global llm.model
+#     elasticsearchURL  - Override global elasticsearch.url
+#   labels        (optional) - Additional labels for the Agent CR
+#   annotations   (optional) - Additional annotations for the Agent CR
+#   resources     (optional) - Override workerResources for this agent's worker pods
+#     requests:
+#       cpu: 250m
+#       memory: 256Mi
+#     limits:
+#       cpu: "1"
+#       memory: 512Mi
+agents: {}
+
+# ---------------------------------------------------------------------------
+# AgentTask definitions
+# ---------------------------------------------------------------------------
+# Define AgentTask custom resources to be created with the chart.
+# Each entry creates an agents.bulletfarm.io/v1alpha1 AgentTask CR.
+#
+# Example:
+#   agentTasks:
+#     fix-readme:
+#       agentRef: "my-agent"
+#       description: "Fix the README formatting"
+#       prompt: "Fix all markdown formatting issues in README.md"
+#       targetBranch: "fix-readme"
+#       skills:
+#         - documentation
+#       maxRetries: 3
+#       labels: {}
+#       annotations: {}
+#
+# Fields:
+#   agentRef     (required) - Name of the Agent CR this task belongs to
+#   prompt       (required) - Task instruction for the LangChain agent
+#   description  (optional) - Human-readable description
+#   targetBranch (optional) - Branch name for changes (auto-generated if empty)
+#   skills       (optional) - Skills for this task (merged with agent defaults)
+#   maxRetries   (optional) - Max retry attempts on failure (default 2)
+#   labels       (optional) - Additional labels for the AgentTask CR
+#   annotations  (optional) - Additional annotations for the AgentTask CR
+agentTasks: {}
+
+# ---------------------------------------------------------------------------
+# Global labels applied to all resources
+# ---------------------------------------------------------------------------
+commonLabels: {}
+
+# -- Global annotations applied to all resources
+commonAnnotations: {}

@@ -1,6 +1,10 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
+# Junk
+/.tmp
+
+# ============================================
+# Go
+# ============================================
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -17,16 +21,61 @@ coverage.*
 *.coverprofile
 profile.cov
 
-# Dependency directories (remove the comment below to include it)
+# Dependency directories
 # vendor/
 
 # Go workspace file
 go.work
 go.work.sum
 
-# env file
-.env
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+*.egg
+.python-version
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# ============================================
+# Node (if any)
+# ============================================
+node_modules/
+
+# ============================================
+# Helm
+# ============================================
+*.tgz
+
+# ============================================
+# Build artifacts
+# ============================================
+bin/
+dist/
+
+# ============================================
+# Environment & secrets
+# ============================================
+.env
+.env.*
+!.env.example
+
+# ============================================
+# IDE / Editor
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+Thumbs.db

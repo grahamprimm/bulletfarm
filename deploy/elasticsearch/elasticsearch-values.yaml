@@ -1,0 +1,50 @@
+# Elasticsearch Helm chart values for single-node Minikube development
+# Chart: elastic/elasticsearch (8.5.1) from https://helm.elastic.co
+# Why single-node: Minikube has limited resources; multi-node adds complexity
+# without benefit in local dev.
+
+replicas: 1
+minimumMasterNodes: 1
+
+# Disable all security and TLS for local dev.
+# The chart injects xpack.security env vars that override esConfig unless we
+# also set these env vars AND disable cert generation + set protocol to http.
+esConfig:
+  elasticsearch.yml: |
+    xpack.security.enabled: false
+    xpack.security.http.ssl.enabled: false
+    xpack.security.transport.ssl.enabled: false
+
+# Override chart-injected security env vars to disable TLS
+extraEnvs:
+  - name: xpack.security.enabled
+    value: "false"
+  - name: xpack.security.http.ssl.enabled
+    value: "false"
+  - name: xpack.security.transport.ssl.enabled
+    value: "false"
+
+# Don't generate TLS certificates (not needed with security disabled)
+createCert: false
+
+# Readiness probe must use HTTP (not HTTPS) when security is disabled
+protocol: http
+
+# Resource limits tuned for Minikube (typically 2-4 CPU, 4-8GB RAM)
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Soft anti-affinity: prefer spreading but don't block on single-node cluster
+antiAffinity: "soft"
+
+# No persistent volumes for dev — data is ephemeral
+persistence:
+  enabled: false
+
+# JVM heap: set to half of memory limit (best practice)
+esJavaOpts: "-Xmx1g -Xms1g"

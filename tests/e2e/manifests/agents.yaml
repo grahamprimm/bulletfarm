@@ -1,0 +1,57 @@
+# --- Agent: alpha-agent (Python repo) ---
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: Agent
+metadata:
+  name: alpha-agent
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+spec:
+  repository: "grahamprimm/bulletfarm-test-repo-alpha"
+  branch: "main"
+  workerImage: "bulletfarm/worker:latest"
+  defaultSkills:
+    - code-edit
+    - testing
+  config:
+    llmProvider: "openai"
+    llmModel: "gpt-4o-mini"
+    elasticsearchURL: "http://elasticsearch-master:9200"
+---
+# --- Agent: beta-agent (Go repo) ---
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: Agent
+metadata:
+  name: beta-agent
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+spec:
+  repository: "grahamprimm/bulletfarm-test-repo-beta"
+  branch: "main"
+  workerImage: "bulletfarm/worker:latest"
+  defaultSkills:
+    - code-edit
+    - documentation
+  config:
+    llmProvider: "openai"
+    llmModel: "gpt-4o-mini"
+    elasticsearchURL: "http://elasticsearch-master:9200"
+---
+# --- Agent: gamma-agent (Node.js repo) ---
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: Agent
+metadata:
+  name: gamma-agent
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+spec:
+  repository: "grahamprimm/bulletfarm-test-repo-gamma"
+  branch: "main"
+  workerImage: "bulletfarm/worker:latest"
+  defaultSkills:
+    - code-edit
+    - testing
+    - documentation
+  config:
+    llmProvider: "openai"
+    llmModel: "gpt-4o-mini"
+    elasticsearchURL: "http://elasticsearch-master:9200"

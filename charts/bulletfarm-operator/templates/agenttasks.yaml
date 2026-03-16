@@ -1,0 +1,36 @@
+{{- range $name, $task := .Values.agentTasks }}
+---
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "agent-operator.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: agenttask
+    agents.bulletfarm.io/agent-name: {{ $task.agentRef }}
+    {{- with $task.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- $annotations := merge ($task.annotations | default dict) ($.Values.commonAnnotations | default dict) }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  agentRef: {{ $task.agentRef | quote }}
+  prompt: {{ $task.prompt | quote }}
+  {{- if $task.description }}
+  description: {{ $task.description | quote }}
+  {{- end }}
+  {{- if $task.targetBranch }}
+  targetBranch: {{ $task.targetBranch | quote }}
+  {{- end }}
+  {{- with $task.skills }}
+  skills:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if $task.maxRetries }}
+  maxRetries: {{ $task.maxRetries }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,147 @@
+
+[0;34m[19:55:14][0m === Phase 1: Prerequisites ===
+[0;34m[19:55:14][0m Checking prerequisites...
+[0;32m[PASS][0m Minikube is running
+[0;32m[PASS][0m Operator is running and ready
+[0;32m[PASS][0m Elasticsearch is running
+[0;32m[PASS][0m Secrets configured (github-token=40c, openai-api-key=167c)
+[0;32m[PASS][0m CRDs installed
+[0;32m[PASS][0m All 3 GitHub test repos accessible
+[0;34m[19:55:18][0m All prerequisites passed.
+[0;34m[19:55:18][0m 
+[0;34m[19:55:18][0m === Phase 2: Cleanup ===
+[0;34m[19:55:18][0m Cleaning up previous E2E test resources...
+[0;34m[19:55:24][0m Cleanup complete.
+[0;34m[19:55:24][0m Closing stale PRs from previous E2E runs...
+[0;34m[19:55:25][0m 
+[0;34m[19:55:25][0m === Phase 3: Deploy Agents ===
+agent.agents.bulletfarm.io/alpha-agent created
+agent.agents.bulletfarm.io/beta-agent created
+agent.agents.bulletfarm.io/gamma-agent created
+[0;32m[PASS][0m All 3 agents created
+[0;34m[19:55:29][0m 
+[0;34m[19:55:29][0m === Phase 4: Deploy Tasks (all 6 simultaneously) ===
+agenttask.agents.bulletfarm.io/alpha-error-handling created
+agenttask.agents.bulletfarm.io/alpha-add-tests created
+agenttask.agents.bulletfarm.io/beta-add-logging created
+agenttask.agents.bulletfarm.io/beta-update-docs created
+agenttask.agents.bulletfarm.io/gamma-add-validation created
+agenttask.agents.bulletfarm.io/gamma-add-tests created
+[0;32m[PASS][0m All 6 tasks created
+[0;34m[19:55:33][0m 
+[0;34m[19:55:33][0m === Phase 5: Waiting for tasks (timeout=480s per task) ===
+[0;34m[19:55:37][0m Poll @0s:  alpha-error-handling=Running(5%)  alpha-add-tests=Running(5%)  beta-add-logging=Running(5%)  beta-update-docs=Running(5%)  gamma-add-validation=Running(5%)  gamma-add-tests=Running(5%)
+[0;34m[19:55:56][0m Poll @15s:  alpha-error-handling=Running(40%)  alpha-add-tests=Running(40%)  beta-add-logging=Running(40%)  beta-update-docs=Running(40%)  gamma-add-validation=Running(40%)  gamma-add-tests=Running(40%)
+[0;34m[19:56:14][0m Poll @30s:  alpha-error-handling=Running(40%)  alpha-add-tests=WaitingForPR(100%)  beta-add-logging=WaitingForPR(100%)  beta-update-docs=WaitingForPR(100%)  gamma-add-validation=WaitingForPR(100%)  gamma-add-tests=WaitingForPR(100%)
+[0;34m[19:56:32][0m Poll @45s:  alpha-error-handling=Running(40%)  alpha-add-tests=WaitingForPR(100%)  beta-add-logging=WaitingForPR(100%)  beta-update-docs=WaitingForPR(100%)  gamma-add-validation=WaitingForPR(100%)  gamma-add-tests=WaitingForPR(100%)
+[0;34m[19:56:50][0m Poll @60s:  alpha-error-handling=WaitingForPR(100%)  alpha-add-tests=WaitingForPR(100%)  beta-add-logging=WaitingForPR(100%)  beta-update-docs=WaitingForPR(100%)  gamma-add-validation=WaitingForPR(100%)  gamma-add-tests=WaitingForPR(100%)
+[0;34m[19:56:50][0m All tasks reached terminal state.
+[0;34m[19:56:50][0m 
+[0;34m[19:56:50][0m === Phase 6: Validation ===
+[0;34m[19:56:50][0m --- Validating S1: alpha-error-handling ---
+[0;32m[PASS][0m S1: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S1: Progress is 100
+[0;32m[PASS][0m S1: Worker pod 'worker-alpha-error-handling' was created
+[0;32m[PASS][0m S1: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-alpha/pull/24
+[0;32m[PASS][0m S1: PR #24 is OPEN and ready for review
+[0;32m[PASS][0m S1: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:56:44Z)
+[0;32m[PASS][0m S1: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S1: PR has bulletfarm/agent label
+[0;32m[PASS][0m S1: PR has task-specific label
+[0;32m[PASS][0m S1: Worker pod still running (kept alive for PR watching)
+[0;34m[19:56:54][0m S1: ALL CHECKS PASSED
+[0;34m[19:56:54][0m --- Validating S2: alpha-add-tests ---
+[0;32m[PASS][0m S2: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S2: Progress is 100
+[0;32m[PASS][0m S2: Worker pod 'worker-alpha-add-tests' was created
+[0;32m[PASS][0m S2: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-alpha/pull/23
+[0;32m[PASS][0m S2: PR #23 is OPEN and ready for review
+[0;32m[PASS][0m S2: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:55:59Z)
+[0;32m[PASS][0m S2: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S2: PR has bulletfarm/agent label
+[0;32m[PASS][0m S2: PR has task-specific label
+[0;32m[PASS][0m S2: Worker pod still running (kept alive for PR watching)
+[0;34m[19:56:57][0m S2: ALL CHECKS PASSED
+[0;34m[19:56:57][0m --- Validating S3: beta-add-logging ---
+[0;32m[PASS][0m S3: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S3: Progress is 100
+[0;32m[PASS][0m S3: Worker pod 'worker-beta-add-logging' was created
+[0;32m[PASS][0m S3: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-beta/pull/20
+[0;32m[PASS][0m S3: PR #20 is OPEN and ready for review
+[0;32m[PASS][0m S3: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:56:00Z)
+[0;32m[PASS][0m S3: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S3: PR has bulletfarm/agent label
+[0;32m[PASS][0m S3: PR has task-specific label
+[0;32m[PASS][0m S3: Worker pod still running (kept alive for PR watching)
+[0;34m[19:56:59][0m S3: ALL CHECKS PASSED
+[0;34m[19:56:59][0m --- Validating S4: beta-update-docs ---
+[0;32m[PASS][0m S4: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S4: Progress is 100
+[0;32m[PASS][0m S4: Worker pod 'worker-beta-update-docs' was created
+[0;32m[PASS][0m S4: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-beta/pull/19
+[0;32m[PASS][0m S4: PR #19 is OPEN and ready for review
+[0;32m[PASS][0m S4: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:56:01Z)
+[0;32m[PASS][0m S4: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S4: PR has bulletfarm/agent label
+[0;32m[PASS][0m S4: PR has task-specific label
+[0;32m[PASS][0m S4: Worker pod still running (kept alive for PR watching)
+[0;34m[19:57:02][0m S4: ALL CHECKS PASSED
+[0;34m[19:57:02][0m --- Validating S5: gamma-add-validation ---
+[0;32m[PASS][0m S5: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S5: Progress is 100
+[0;32m[PASS][0m S5: Worker pod 'worker-gamma-add-validation' was created
+[0;32m[PASS][0m S5: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-gamma/pull/25
+[0;32m[PASS][0m S5: PR #25 is OPEN and ready for review
+[0;32m[PASS][0m S5: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:56:05Z)
+[0;32m[PASS][0m S5: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S5: PR has bulletfarm/agent label
+[0;32m[PASS][0m S5: PR has task-specific label
+[0;32m[PASS][0m S5: Worker pod still running (kept alive for PR watching)
+[0;34m[19:57:06][0m S5: ALL CHECKS PASSED
+[0;34m[19:57:06][0m --- Validating S6: gamma-add-tests ---
+[0;32m[PASS][0m S6: Phase is WaitingForPR (task work done)
+[0;32m[PASS][0m S6: Progress is 100
+[0;32m[PASS][0m S6: Worker pod 'worker-gamma-add-tests' was created
+[0;32m[PASS][0m S6: PR URL present: https://github.com/grahamprimm/bulletfarm-test-repo-gamma/pull/24
+[0;32m[PASS][0m S6: PR #24 is OPEN and ready for review
+[0;32m[PASS][0m S6: Timestamps present (started=2026-03-15T23:55:29Z, completed=2026-03-15T23:56:06Z)
+[0;32m[PASS][0m S6: ES task_memory has 1 entry(ies)
+[0;32m[PASS][0m S6: PR has bulletfarm/agent label
+[0;32m[PASS][0m S6: PR has task-specific label
+[0;32m[PASS][0m S6: Worker pod still running (kept alive for PR watching)
+[0;34m[19:57:09][0m S6: ALL CHECKS PASSED
+[0;34m[19:57:09][0m 
+[0;34m[19:57:09][0m === Phase 7: PR Merge/Close Simulation ===
+[0;34m[19:57:10][0m Merging PR #20 on grahamprimm/bulletfarm-test-repo-beta for task beta-add-logging
+[0;34m[19:57:11][0m   Merged PR #20
+[0;34m[19:57:12][0m Merging PR #25 on grahamprimm/bulletfarm-test-repo-gamma for task gamma-add-validation
+[0;34m[19:57:14][0m   Merged PR #25
+[0;34m[19:57:14][0m Closing PR #19 on grahamprimm/bulletfarm-test-repo-beta for task beta-update-docs
+[0;34m[19:57:16][0m   Closed PR #19
+[0;34m[19:57:16][0m Waiting 90s for operator to detect PR merge/close...
+[0;34m[19:58:46][0m 
+[0;34m[19:58:46][0m === Phase 8: Post-Merge/Close Validation ===
+[0;34m[19:58:46][0m --- Post-merge validation POST-MERGE: beta-add-logging ---
+[0;32m[PASS][0m POST-MERGE: Phase is Merged after PR action
+[0;32m[PASS][0m POST-MERGE: prState is 'merged'
+[0;32m[PASS][0m POST-MERGE: task_memory deleted after graduation
+[0;32m[PASS][0m POST-MERGE: shared_memory has 3 entries
+[0;32m[PASS][0m POST-MERGE: Worker pod torn down after PR Merged
+[0;34m[19:58:48][0m POST-MERGE: ALL POST-MERGE CHECKS PASSED
+[0;34m[19:58:48][0m --- Post-merge validation POST-MERGE: gamma-add-validation ---
+[0;32m[PASS][0m POST-MERGE: Phase is Merged after PR action
+[0;32m[PASS][0m POST-MERGE: prState is 'merged'
+[0;32m[PASS][0m POST-MERGE: task_memory deleted after graduation
+[0;32m[PASS][0m POST-MERGE: shared_memory has 3 entries
+[0;32m[PASS][0m POST-MERGE: Worker pod torn down after PR Merged
+[0;34m[19:58:50][0m POST-MERGE: ALL POST-MERGE CHECKS PASSED
+[0;34m[19:58:50][0m --- Post-merge validation POST-CLOSE: beta-update-docs ---
+[0;32m[PASS][0m POST-CLOSE: Phase is Closed after PR action
+[0;32m[PASS][0m POST-CLOSE: prState is 'closed'
+[0;32m[PASS][0m POST-CLOSE: task_memory deleted after graduation
+[0;32m[PASS][0m POST-CLOSE: shared_memory has 3 entries
+[0;32m[PASS][0m POST-CLOSE: Worker pod torn down after PR Closed
+[0;34m[19:58:52][0m POST-CLOSE: ALL POST-MERGE CHECKS PASSED
+[0;34m[19:58:52][0m 
+[0;34m[19:58:52][0m === Phase 9: Report ===
+[0;34m[19:58:54][0m Report written to: /mnt/c/Users/graham/workspace/bulletfarm/tests/e2e/results/e2e-20260315-195514-report.md

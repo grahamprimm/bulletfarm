@@ -1,0 +1,83 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: agents.agents.bulletfarm.io
+spec:
+  group: agents.bulletfarm.io
+  names:
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.repository
+      name: Repository
+      type: string
+    - jsonPath: .spec.workerImage
+      name: Image
+      type: string
+    - jsonPath: .status.ready
+      name: Ready
+      type: boolean
+    - jsonPath: .status.activeTasks
+      name: Active Tasks
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              branch:
+                type: string
+              config:
+                properties:
+                  elasticsearchURL:
+                    type: string
+                  llmModel:
+                    type: string
+                  llmProvider:
+                    type: string
+                type: object
+              defaultSkills:
+                items:
+                  type: string
+                type: array
+              repository:
+                type: string
+              workerImage:
+                type: string
+            required:
+            - repository
+            - workerImage
+            type: object
+          status:
+            properties:
+              activeTasks:
+                type: integer
+              lastReconciled:
+                format: date-time
+                type: string
+              ready:
+                type: boolean
+              runningTasks:
+                items:
+                  type: string
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

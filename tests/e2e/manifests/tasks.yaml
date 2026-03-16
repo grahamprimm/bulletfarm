@@ -1,0 +1,110 @@
+# =============================================================================
+# Scenario 1: alpha-agent — Add error handling (Python, code-edit + testing)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: alpha-error-handling
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S1"
+spec:
+  agentRef: "alpha-agent"
+  description: "Add error handling to the Flask API"
+  prompt: "Add proper error handling to the Flask API in main.py. Add a global error handler for 500 errors, validate input on POST endpoints, and return proper JSON error responses with status codes."
+  targetBranch: "e2e-alpha-error-handling"
+  skills:
+    - code-edit
+---
+# =============================================================================
+# Scenario 2: alpha-agent — Generate tests (Python, testing skill)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: alpha-add-tests
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S2"
+spec:
+  agentRef: "alpha-agent"
+  description: "Add pytest tests for the Flask API"
+  prompt: "Create a tests/test_api.py file with pytest tests for the Flask API in main.py. Test all endpoints including GET, POST, and error cases. Use pytest fixtures for the test client."
+  targetBranch: "e2e-alpha-add-tests"
+  skills:
+    - code-edit
+    - testing
+---
+# =============================================================================
+# Scenario 3: beta-agent — Add logging (Go, code-edit + documentation)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: beta-add-logging
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S3"
+spec:
+  agentRef: "beta-agent"
+  description: "Add structured logging to the Go HTTP server"
+  prompt: "Add structured logging to the Go HTTP server in main.go. Use the standard log/slog package. Log each request with method, path, status code, and duration. Add a health check endpoint at /healthz."
+  targetBranch: "e2e-beta-add-logging"
+  skills:
+    - code-edit
+---
+# =============================================================================
+# Scenario 4: beta-agent — Update documentation (Go, doc-update skill)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: beta-update-docs
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S4"
+spec:
+  agentRef: "beta-agent"
+  description: "Update README with API documentation"
+  prompt: "Update the README.md to include comprehensive API documentation. Document all endpoints with request/response examples, add a Getting Started section, and include build and run instructions for the Go server."
+  targetBranch: "e2e-beta-update-docs"
+  skills:
+    - documentation
+    - doc-update
+---
+# =============================================================================
+# Scenario 5: gamma-agent — Add input validation (Node.js, code-edit)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: gamma-add-validation
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S5"
+spec:
+  agentRef: "gamma-agent"
+  description: "Add input validation to Express API"
+  prompt: "Add input validation to the Express API in index.js. Validate that POST /items requires name (string) and price (positive number). Return 400 with descriptive error messages for invalid input. Add an error handling middleware."
+  targetBranch: "e2e-gamma-add-validation"
+  skills:
+    - code-edit
+---
+# =============================================================================
+# Scenario 6: gamma-agent — Add tests (Node.js, testing skill)
+# =============================================================================
+apiVersion: agents.bulletfarm.io/v1alpha1
+kind: AgentTask
+metadata:
+  name: gamma-add-tests
+  labels:
+    app.kubernetes.io/part-of: bulletfarm-e2e
+    e2e-scenario: "S6"
+spec:
+  agentRef: "gamma-agent"
+  description: "Add Jest tests for Express API"
+  prompt: "Create a __tests__/index.test.js file with Jest and supertest tests for the Express API in index.js. Test GET /items, GET /items/:id, POST /items, and error cases like 404 and invalid input."
+  targetBranch: "e2e-gamma-add-tests"
+  skills:
+    - code-edit
+    - testing
