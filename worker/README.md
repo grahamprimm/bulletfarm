@@ -25,6 +25,148 @@ Each worker pod handles a single task:
 | `GET` | `/tasks/{id}/pr-status` | Check GitHub PR state (open/merged/closed) |
 | `POST` | `/tasks/{id}/graduate` | Graduate task memory to shared memory |
 
+## Elasticsearch Memory
+
+The worker uses two Elasticsearch indices to store and retrieve agent knowledge:
+
+- **`task_memory`**: Per-task results, methodology, tools used, files modified (deleted when PR merged/closed)
+- **`shared_memory`**: Cross-task knowledge, generalizable learnings (permanent, enriched on each PR merge/close)
+
+### Memory Write Pipeline
+
+Memory writes are **buffered during task execution** and flushed using the Elasticsearch bulk API **only on task completion** (success or failure).
+
+**Write Strategy:**
+1. **During execution**: Documents buffered in `MemoryWriteBuffer` (no ES writes)
+2. **On completion**: All buffered documents flushed via `helpers.bulk()` in a single operation
+3. **Long-running tasks**: Intermediate flush after 5 minutes (optional checkpoint)
+
+**Gating Logic for Shared Memory:**
+- Only successful tasks with code changes and skill tool usage write to `shared_memory`
+- Failed or incomplete tasks only write to `task_memory`
+
+**Benefits:**
+- No intermediate writes during normal execution (< 5 minutes)
+- Efficient bulk operations (chunk size: 500 docs, max 10MB per chunk)
+- Graceful error handling (collects all failures, doesn't fail fast)
+
+### Memory Retrieval
+
+The worker searches both `task_memory` and `shared_memory` indices to provide relevant context to the agent. This uses a **multi-level fallback strategy** to ensure the agent continues functioning even when Elasticsearch is slow or unavailable.
+
+### Retrieval Fallback Strategy
+
+When gathering context for a task, the worker attempts multiple strategies in order:
+
+#### Level 1: Full Query (250ms timeout)
+
+**Task Memory:**
+```json
+{
+  "bool": {
+    "must": [
+      {
+        "multi_match": {
+          "query": "Add unit tests for API endpoints",
+          "fields": ["prompt", "output", "methodology"]
+        }
+      },
+      {
+        "terms": {
+          "skills_used": ["code-edit", "testing"]
+        }
+      }
+    ]
+  }
+}
+```
+
+**Shared Memory:**
+```json
+{
+  "bool": {
+    "must": [
+      {
+        "multi_match": {
+          "query": "Add unit tests for API endpoints",
+          "fields": ["summary", "context"]
+        }
+      },
+      {
+        "terms": {
+          "skills": ["code-edit", "testing"]
+        }
+      }
+    ]
+  }
+}
+```
+
+- **Multi-field search**: Searches 3 fields (task_memory) or 2 fields (shared_memory)
+- **Skill filtering**: Requires matching skills (if provided)
+- **Most precise**: Returns highly relevant results
+- **Most expensive**: Complex query, more likely to timeout under load
+
+#### Level 2: Retry with Jitter (50-100ms delay)
+
+If the full query times out, retry once with random jitter to avoid thundering herd.
+
+#### Level 3: BM25 Fallback (250ms timeout)
+
+**Task Memory:**
+```json
+{
+  "match": {
+    "prompt": "Add unit tests for API endpoints"
+  }
+}
+```
+
+**Shared Memory:**
+```json
+{
+  "match": {
+    "summary": "Add unit tests for API endpoints"
+  }
+}
+```
+
+- **Single-field search**: Only searches 1 field (prompt or summary)
+- **No skill filtering**: Ignores skills completely
+- **Less precise**: May return less relevant results
+- **Faster/cheaper**: Simpler query, more likely to succeed under load
+
+#### Level 4: No Retrieval
+
+If all strategies fail, return empty results. The agent continues execution without memory context.
+
+### Query Comparison
+
+| Aspect | Full Query | BM25 Fallback |
+|--------|-----------|---------------|
+| **Fields searched** | 3 (task) or 2 (shared) | 1 field only |
+| **Skill filtering** | ✅ Yes | ❌ No |
+| **Query complexity** | High (bool + multi_match + terms) | Low (simple match) |
+| **Precision** | High (more relevant) | Lower (less relevant) |
+| **Speed** | Slower | Faster |
+| **Resource usage** | Higher | Lower |
+| **Likelihood to succeed** | Lower (under load) | Higher (simpler) |
+
+### Result Merging
+
+Results from both indices are:
+1. Combined into a single list
+2. Sorted by relevance score (`_score`)
+3. Limited to top 10 results
+4. Tagged with `_source_index` ("task_memory" or "shared_memory")
+
+### Guarantees
+
+- **Never blocks indefinitely**: Maximum ~750ms total (3 attempts × 250ms)
+- **Always returns**: Empty results if all strategies fail
+- **Agent continues**: Tasks complete even when ES is down
+- **Logged fallbacks**: Clear logging at each fallback level (Debug/Info/Warning/Error)
+
 ## Tool System
 
 ### Core Tools (always available)
@@ -33,7 +175,7 @@ Each worker pod handles a single task:
 |------|-------------|
 | `read_file` | Read file contents (with truncation for large files) |
 | `list_files` | Recursively list files in a directory |
-| `search_shared_knowledge` | Search Elasticsearch shared memory for relevant past knowledge |
+| `search_shared_knowledge` | Search Elasticsearch (uses fallback strategy above) |
 
 ### Skill Tools (loaded per task)
 

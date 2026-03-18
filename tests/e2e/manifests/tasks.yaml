@@ -1,110 +1,115 @@
 # =============================================================================
-# Scenario 1: alpha-agent — Add error handling (Python, code-edit + testing)
+# NEW E2E TEST TASKS - Fresh scenarios to test memory pipeline
+# =============================================================================
+
+# =============================================================================
+# Scenario 1: alpha-agent — Add database connection pooling (Python)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: alpha-error-handling
+  name: alpha-db-pooling
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S1"
 spec:
   agentRef: "alpha-agent"
-  description: "Add error handling to the Flask API"
-  prompt: "Add proper error handling to the Flask API in main.py. Add a global error handler for 500 errors, validate input on POST endpoints, and return proper JSON error responses with status codes."
-  targetBranch: "e2e-alpha-error-handling"
+  description: "Implement database connection pooling"
+  prompt: "Add SQLite database connection pooling to the Flask application. Create a db.py module with connection pool management using sqlite3. Add functions for getting and releasing connections. Update main.py to use the connection pool for all database operations."
+  targetBranch: "e2e-alpha-db-pooling"
   skills:
     - code-edit
 ---
 # =============================================================================
-# Scenario 2: alpha-agent — Generate tests (Python, testing skill)
+# Scenario 2: alpha-agent — Add API rate limiting (Python)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: alpha-add-tests
+  name: alpha-rate-limiting
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S2"
 spec:
   agentRef: "alpha-agent"
-  description: "Add pytest tests for the Flask API"
-  prompt: "Create a tests/test_api.py file with pytest tests for the Flask API in main.py. Test all endpoints including GET, POST, and error cases. Use pytest fixtures for the test client."
-  targetBranch: "e2e-alpha-add-tests"
+  description: "Implement API rate limiting middleware"
+  prompt: "Add rate limiting to the Flask API using a simple in-memory counter. Create middleware that limits requests to 100 per minute per IP address. Return 429 Too Many Requests when limit is exceeded. Add rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining) to all responses."
+  targetBranch: "e2e-alpha-rate-limiting"
   skills:
     - code-edit
     - testing
 ---
 # =============================================================================
-# Scenario 3: beta-agent — Add logging (Go, code-edit + documentation)
+# Scenario 3: beta-agent — Add metrics endpoint (Go)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: beta-add-logging
+  name: beta-metrics
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S3"
 spec:
   agentRef: "beta-agent"
-  description: "Add structured logging to the Go HTTP server"
-  prompt: "Add structured logging to the Go HTTP server in main.go. Use the standard log/slog package. Log each request with method, path, status code, and duration. Add a health check endpoint at /healthz."
-  targetBranch: "e2e-beta-add-logging"
+  description: "Add Prometheus metrics endpoint"
+  prompt: "Add a /metrics endpoint to the Go HTTP server that exposes Prometheus-style metrics. Track request count, request duration histogram, and active connections gauge. Use the expvar package or implement simple counters. Format output as Prometheus text format."
+  targetBranch: "e2e-beta-metrics"
   skills:
     - code-edit
 ---
 # =============================================================================
-# Scenario 4: beta-agent — Update documentation (Go, doc-update skill)
+# Scenario 4: beta-agent — Add configuration management (Go)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: beta-update-docs
+  name: beta-config
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S4"
 spec:
   agentRef: "beta-agent"
-  description: "Update README with API documentation"
-  prompt: "Update the README.md to include comprehensive API documentation. Document all endpoints with request/response examples, add a Getting Started section, and include build and run instructions for the Go server."
-  targetBranch: "e2e-beta-update-docs"
+  description: "Implement configuration management system"
+  prompt: "Create a config.go file that loads configuration from environment variables and a config.yaml file. Support settings for server port, log level, timeout values, and feature flags. Add validation for required fields. Update main.go to use the configuration system. Document all configuration options in README.md."
+  targetBranch: "e2e-beta-config"
   skills:
+    - code-edit
     - documentation
-    - doc-update
 ---
 # =============================================================================
-# Scenario 5: gamma-agent — Add input validation (Node.js, code-edit)
+# Scenario 5: gamma-agent — Add request logging middleware (Node.js)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: gamma-add-validation
+  name: gamma-logging
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S5"
 spec:
   agentRef: "gamma-agent"
-  description: "Add input validation to Express API"
-  prompt: "Add input validation to the Express API in index.js. Validate that POST /items requires name (string) and price (positive number). Return 400 with descriptive error messages for invalid input. Add an error handling middleware."
-  targetBranch: "e2e-gamma-add-validation"
+  description: "Add structured request logging"
+  prompt: "Create a logging middleware for the Express API that logs all requests in JSON format. Include timestamp, method, path, status code, response time, and request ID. Use a simple console logger with structured output. Add the middleware to index.js before route handlers."
+  targetBranch: "e2e-gamma-logging"
   skills:
     - code-edit
 ---
 # =============================================================================
-# Scenario 6: gamma-agent — Add tests (Node.js, testing skill)
+# Scenario 6: gamma-agent — Add API versioning (Node.js)
 # =============================================================================
 apiVersion: agents.bulletfarm.io/v1alpha1
 kind: AgentTask
 metadata:
-  name: gamma-add-tests
+  name: gamma-versioning
   labels:
     app.kubernetes.io/part-of: bulletfarm-e2e
     e2e-scenario: "S6"
 spec:
   agentRef: "gamma-agent"
-  description: "Add Jest tests for Express API"
-  prompt: "Create a __tests__/index.test.js file with Jest and supertest tests for the Express API in index.js. Test GET /items, GET /items/:id, POST /items, and error cases like 404 and invalid input."
-  targetBranch: "e2e-gamma-add-tests"
+  description: "Implement API versioning system"
+  prompt: "Add API versioning to the Express application. Create /v1 and /v2 route prefixes. Move existing routes to /v1. Create /v2 routes with enhanced response format that includes metadata (version, timestamp, request_id). Add a root endpoint that lists available API versions. Update tests to cover both versions."
+  targetBranch: "e2e-gamma-versioning"
   skills:
     - code-edit
     - testing
+    - documentation

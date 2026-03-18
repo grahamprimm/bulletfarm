@@ -19,7 +19,7 @@ from pydantic import SecretStr
 
 from src.config import WorkerConfig
 from src.github_tools import GitHubClient
-from src.memory import MemoryStore
+from src.memory import MemoryStore, MemoryWriteBuffer, should_write_to_shared_memory
 from src.models import TaskPhase, TaskRequest, TaskStatus
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -50,7 +50,10 @@ ProgressCallback = Callable[[str, int, str], None]
 # Core tools (always available)
 # ---------------------------------------------------------------------------
 
-def _build_core_tools(github_tools: GitHubClient, memory_store: MemoryStore) -> dict[str, StructuredTool]:
+
+def _build_core_tools(
+    github_tools: GitHubClient, memory_store: MemoryStore
+) -> dict[str, StructuredTool]:
     """Build the always-available core tools (read, list, search)."""
 
     def _read_file(file_path: str) -> str:
@@ -69,10 +72,16 @@ def _build_core_tools(github_tools: GitHubClient, memory_store: MemoryStore) -> 
         try:
             result: subprocess.CompletedProcess[str] = subprocess.run(
                 ["find", directory, "-type", "f", "-not", "-path", "*/.git/*"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             files: str = result.stdout.strip()
-            return f"Files in {directory}:\n{files}" if files else f"No files found in {directory}"
+            return (
+                f"Files in {directory}:\n{files}"
+                if files
+                else f"No files found in {directory}"
+            )
         except Exception as e:
             return f"Error listing files in {directory}: {e}"
 
@@ -88,7 +97,9 @@ def _build_core_tools(github_tools: GitHubClient, memory_store: MemoryStore) -> 
             description="List all files in a directory recursively (excludes .git). Args: directory (absolute path).",
         ),
         "search_shared_knowledge": StructuredTool.from_function(
-            func=lambda query_text, skills=None, limit=5: memory_store["search_shared"](query_text, skills, limit),
+            func=lambda query_text, skills=None, limit=5: memory_store["search_shared"](
+                query_text, skills, limit
+            ),
             name="search_shared_knowledge",
             description="Search shared memory for relevant knowledge from past tasks.",
         ),
@@ -98,6 +109,7 @@ def _build_core_tools(github_tools: GitHubClient, memory_store: MemoryStore) -> 
 # ---------------------------------------------------------------------------
 # Skill tools (loaded per task)
 # ---------------------------------------------------------------------------
+
 
 def _build_skill_tools() -> dict[str, Callable[[], StructuredTool]]:
     """Registry of skill-name -> tool factory."""
@@ -149,9 +161,12 @@ def _build_skill_tools() -> dict[str, Callable[[], StructuredTool]]:
                             test_code += f"def test_{func_name}():\n    # TODO: implement test\n    pass\n\n"
                 elif file_path.endswith((".js", ".ts")):
                     routes: list[tuple[str, str]] = re.findall(
-                        r"app\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)", content,
+                        r"app\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)",
+                        content,
                     )
-                    exports: list[str] = re.findall(r"(?:module\.exports|export)\s*=\s*(\w+)", content)
+                    exports: list[str] = re.findall(
+                        r"(?:module\.exports|export)\s*=\s*(\w+)", content
+                    )
                     test_code = f"// Auto-generated tests for {file_path}\n\n"
                     test_code += "const request = require('supertest');\n"
                     if exports:
@@ -159,12 +174,18 @@ def _build_skill_tools() -> dict[str, Callable[[], StructuredTool]]:
                     for method, path in routes:
                         test_code += f"describe('{method.upper()} {path}', () => {{\n"
                         test_code += f"  test('should respond', async () => {{\n"
-                        test_code += f"    const res = await request(app).{method}('{path}');\n"
+                        test_code += (
+                            f"    const res = await request(app).{method}('{path}');\n"
+                        )
                         test_code += f"    expect(res.statusCode).toBeDefined();\n"
                         test_code += f"  }});\n}});\n\n"
                 else:
                     test_code = f"// No test generator available for {file_path}\n"
-                return test_code if test_code.strip() else "No testable functions/routes found."
+                return (
+                    test_code
+                    if test_code.strip()
+                    else "No testable functions/routes found."
+                )
             except FileNotFoundError:
                 return f"Error: Source file not found: {file_path}"
             except Exception as e:
@@ -180,8 +201,11 @@ def _build_skill_tools() -> dict[str, Callable[[], StructuredTool]]:
         def graphql_debug(endpoint: str, query: str) -> str:
             try:
                 import requests
+
                 response = requests.post(endpoint, json={"query": query}, timeout=30)
-                return f"Status: {response.status_code}\nResponse: {response.text[:2000]}"
+                return (
+                    f"Status: {response.status_code}\nResponse: {response.text[:2000]}"
+                )
             except Exception as e:
                 return f"GraphQL debug error: {e}"
 
@@ -251,6 +275,7 @@ def _select_tools(
 # Agent factory
 # ---------------------------------------------------------------------------
 
+
 def create_agent(
     config: WorkerConfig,
     github_tools: GitHubClient,
@@ -260,12 +285,18 @@ def create_agent(
 
     if config.llm_provider == "ollama":
         from langchain_community.chat_models import ChatOllama
+
         llm = ChatOllama(model=config.llm_model, base_url=config.ollama_base_url)
     else:
         from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(model=config.llm_model, api_key=SecretStr(config.openai_api_key))
 
-    core_tools: dict[str, StructuredTool] = _build_core_tools(github_tools, memory_store)
+        llm = ChatOpenAI(
+            model=config.llm_model, api_key=SecretStr(config.openai_api_key)
+        )
+
+    core_tools: dict[str, StructuredTool] = _build_core_tools(
+        github_tools, memory_store
+    )
     skill_registry: dict[str, Callable[[], StructuredTool]] = _build_skill_tools()
 
     async def run_task(
@@ -277,6 +308,11 @@ def create_agent(
         pr_url: str = task_request.pr_url
         output_text: str = ""
         branch_name: str = task_request.target_branch or f"task-{task_request.task_id}"
+
+        # Create memory write buffer for this task
+        memory_buffer: MemoryWriteBuffer = memory_store["create_buffer"](
+            task_request.task_id
+        )
 
         try:
             # --- Step 1: Clone repo ---
@@ -291,63 +327,123 @@ def create_agent(
             if task_request.is_retry:
                 subprocess.run(
                     ["git", "clone", clone_url, workspace],
-                    check=True, capture_output=True, text=True,
+                    check=True,
+                    capture_output=True,
+                    text=True,
                 )
                 fetch_result: subprocess.CompletedProcess[str] = subprocess.run(
                     ["git", "fetch", "origin", branch_name],
-                    cwd=workspace, capture_output=True, text=True,
+                    cwd=workspace,
+                    capture_output=True,
+                    text=True,
                 )
                 if fetch_result.returncode == 0:
                     subprocess.run(
                         ["git", "checkout", branch_name],
-                        cwd=workspace, check=True, capture_output=True, text=True,
+                        cwd=workspace,
+                        check=True,
+                        capture_output=True,
+                        text=True,
                     )
                     logger.info("Retry: checked out existing branch %s", branch_name)
                 else:
                     subprocess.run(
                         ["git", "checkout", "-b", branch_name],
-                        cwd=workspace, check=True, capture_output=True, text=True,
+                        cwd=workspace,
+                        check=True,
+                        capture_output=True,
+                        text=True,
                     )
-                    logger.info("Retry: created new branch %s (remote didn't exist)", branch_name)
+                    logger.info(
+                        "Retry: created new branch %s (remote didn't exist)",
+                        branch_name,
+                    )
             else:
                 subprocess.run(
                     ["git", "clone", "--depth=1", clone_url, workspace],
-                    check=True, capture_output=True, text=True,
+                    check=True,
+                    capture_output=True,
+                    text=True,
                 )
                 subprocess.run(
                     ["git", "checkout", "-b", branch_name],
-                    cwd=workspace, check=True, capture_output=True, text=True,
+                    cwd=workspace,
+                    check=True,
+                    capture_output=True,
+                    text=True,
                 )
                 logger.info("First attempt: created branch %s", branch_name)
 
-            logger.info("Cloned %s to %s (retry=%s)", task_request.repository, workspace, task_request.is_retry)
+            logger.info(
+                "Cloned %s to %s (retry=%s)",
+                task_request.repository,
+                workspace,
+                task_request.is_retry,
+            )
 
-            subprocess.run(["git", "config", "user.email", "agent@bulletfarm.io"], cwd=workspace, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "BulletFarm Agent"], cwd=workspace, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "agent@bulletfarm.io"],
+                cwd=workspace,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "BulletFarm Agent"],
+                cwd=workspace,
+                check=True,
+                capture_output=True,
+            )
 
             # --- Step 2: Gather context ---
             if progress_callback:
                 progress_callback(task_request.task_id, 20, "Gathering context")
 
-            repo_info: dict[str, str] = github_tools["get_repo_info"](task_request.repository)
+            repo_info: dict[str, str] = github_tools["get_repo_info"](
+                task_request.repository
+            )
 
-            task_history: list[dict[str, Any]] = memory_store["history"](task_request.agent_ref, limit=5)
-            logger.info("[Memory] Task history for agent=%s: %d previous tasks", task_request.agent_ref, len(task_history))
+            task_history: list[dict[str, Any]] = memory_store["history"](
+                task_request.agent_ref, limit=5
+            )
+            logger.info(
+                "[Memory] Task history for agent=%s: %d previous tasks",
+                task_request.agent_ref,
+                len(task_history),
+            )
 
-            shared_context: str = ""
-            if task_request.skills:
-                shared_results: list[dict[str, Any]] = memory_store["search_shared"](
-                    task_request.prompt, task_request.skills, limit=3,
+            # Search both task_memory and shared_memory for relevant context
+            # Uses unified_search with fallback strategy (timeout, retry, BM25, no retrieval)
+            memory_context: str = ""
+            if task_request.skills or task_request.prompt:
+                memory_results: list[dict[str, Any]] = memory_store["unified_search"](
+                    query_text=task_request.prompt,
+                    skills=task_request.skills if task_request.skills else None,
+                    limit=10,  # Top 10 results from both indices combined
+                    search_task_memory=True,
+                    search_shared_memory=True,
                 )
-                logger.info("[Memory] Shared knowledge: %d results", len(shared_results))
-                if shared_results:
-                    shared_context = "\n\nRelevant knowledge from past tasks:\n"
-                    for r in shared_results:
-                        shared_context += f"- {r.get('summary', '')}\n"
+                logger.info(
+                    "[Memory] Unified search returned %d results", len(memory_results)
+                )
+                if memory_results:
+                    memory_context = "\n\nRelevant knowledge from past tasks:\n"
+                    for r in memory_results:
+                        source_index = r.get("_source_index", "unknown")
+                        if source_index == "task_memory":
+                            # Task memory: show prompt and outcome
+                            prompt = r.get("prompt", "")[:80]
+                            phase = r.get("phase", "")
+                            memory_context += f"- [Task] {prompt} (Phase: {phase})\n"
+                        else:
+                            # Shared memory: show summary
+                            summary = r.get("summary", "")
+                            memory_context += f"- [Shared] {summary}\n"
 
             file_listing: str = subprocess.run(
                 ["find", ".", "-type", "f", "-not", "-path", "./.git/*"],
-                cwd=workspace, capture_output=True, text=True,
+                cwd=workspace,
+                capture_output=True,
+                text=True,
             ).stdout[:3000]
 
             # --- Step 3: Run LLM agent ---
@@ -365,7 +461,7 @@ def create_agent(
                 f"Base branch: {repo_info['default_branch']}\n"
                 f"Task branch: {branch_name}\n"
                 f"Skills: {', '.join(task_request.skills)}\n"
-                f"{shared_context}\n\n"
+                f"{memory_context}\n\n"
                 f"Files in repo:\n{file_listing}\n\n"
                 f"Task: {task_request.prompt}\n\n"
                 f"IMPORTANT: Use the code_edit tool with FULL paths starting with {workspace}/ "
@@ -397,11 +493,46 @@ def create_agent(
                         if kind == "on_tool_start":
                             step_count += 1
                             tool_name: str = event.get("name", "?")
-                            tool_input: str = str(event.get("data", {}).get("input", ""))[:200]
-                            logger.info("[Agent Step %d] Tool: %s | Input: %s", step_count, tool_name, tool_input)
+                            tool_input: str = str(
+                                event.get("data", {}).get("input", "")
+                            )[:200]
+                            logger.info(
+                                "[Agent Step %d] Tool: %s | Input: %s",
+                                step_count,
+                                tool_name,
+                                tool_input,
+                            )
+
+                            # Check if intermediate flush is needed for long-running tasks
+                            if memory_buffer.should_flush_intermediate():
+                                logger.info(
+                                    "[Memory] Long-running task detected, performing intermediate flush for task_id=%s",
+                                    task_request.task_id,
+                                )
+                                intermediate_doc = {
+                                    "agent_ref": task_request.agent_ref,
+                                    "repository": task_request.repository,
+                                    "prompt": task_request.prompt,
+                                    "output": f"Task in progress (step {step_count})",
+                                    "skills_used": task_request.skills,
+                                    "phase": "Running",
+                                    "intermediate_checkpoint": True,
+                                }
+                                memory_buffer.add_task_memory(intermediate_doc)
+                                bulk_result = memory_store["bulk_write"](memory_buffer)
+                                logger.info(
+                                    "[Memory] Intermediate flush: success=%d, failed=%d",
+                                    bulk_result["success_count"],
+                                    bulk_result["failed_count"],
+                                )
+
                         elif kind == "on_tool_end":
-                            tool_output: str = str(event.get("data", {}).get("output", ""))[:300]
-                            logger.info("[Agent Step %d] Result: %s", step_count, tool_output)
+                            tool_output: str = str(
+                                event.get("data", {}).get("output", "")
+                            )[:300]
+                            logger.info(
+                                "[Agent Step %d] Result: %s", step_count, tool_output
+                            )
                         elif kind == "on_chat_model_end":
                             output = event.get("data", {}).get("output", None)
                             if output and hasattr(output, "content"):
@@ -409,7 +540,11 @@ def create_agent(
 
                     if result is None:
                         result = await agent_graph.ainvoke(
-                            {"messages": [{"role": "user", "content": enriched_prompt}]},
+                            {
+                                "messages": [
+                                    {"role": "user", "content": enriched_prompt}
+                                ]
+                            },
                             config={"recursion_limit": max_agent_steps},
                         )
                     logger.info("[Agent] Completed after %d tool calls", step_count)
@@ -418,40 +553,64 @@ def create_agent(
                 except Exception as llm_exc:
                     exc_msg: str = str(llm_exc).lower()
                     is_rate_limit: bool = any(
-                        m in exc_msg for m in ["rate limit", "429", "too many requests", "quota"]
+                        m in exc_msg
+                        for m in ["rate limit", "429", "too many requests", "quota"]
                     )
                     is_recursion: bool = "recursion" in exc_msg
 
                     if is_recursion:
-                        logger.warning("Agent hit recursion limit (%d steps): %s", max_agent_steps, llm_exc)
-                        recursion_msg: HumanMessage = HumanMessage(content=(
-                            f"Agent hit the maximum step limit ({max_agent_steps} steps) "
-                            f"without completing the task."
-                        ))
+                        logger.warning(
+                            "Agent hit recursion limit (%d steps): %s",
+                            max_agent_steps,
+                            llm_exc,
+                        )
+                        recursion_msg: HumanMessage = HumanMessage(
+                            content=(
+                                f"Agent hit the maximum step limit ({max_agent_steps} steps) "
+                                f"without completing the task."
+                            )
+                        )
                         result = {"messages": [recursion_msg]}
                         break
                     elif is_rate_limit and attempt < max_llm_retries - 1:
-                        wait_secs: int = (2 ** attempt) * 15
-                        logger.warning("Rate limited, waiting %ds (attempt %d/%d)", wait_secs, attempt + 1, max_llm_retries)
+                        wait_secs: int = (2**attempt) * 15
+                        logger.warning(
+                            "Rate limited, waiting %ds (attempt %d/%d)",
+                            wait_secs,
+                            attempt + 1,
+                            max_llm_retries,
+                        )
                         if progress_callback:
-                            progress_callback(task_request.task_id, 45, f"Rate limited, retrying in {wait_secs}s")
+                            progress_callback(
+                                task_request.task_id,
+                                45,
+                                f"Rate limited, retrying in {wait_secs}s",
+                            )
                         await asyncio.sleep(wait_secs)
                     else:
                         raise
 
             messages: list[BaseMessage] = result.get("messages", []) if result else []
-            raw_content: Any = messages[-1].content if messages else "No output from agent"
-            output_text = raw_content if isinstance(raw_content, str) else str(raw_content)
+            raw_content: Any = (
+                messages[-1].content if messages else "No output from agent"
+            )
+            output_text = (
+                raw_content if isinstance(raw_content, str) else str(raw_content)
+            )
 
             if progress_callback:
                 progress_callback(task_request.task_id, 70, "Evaluating changes")
 
             # --- Step 4: Evaluate changes ---
-            subprocess.run(["git", "add", "-A"], cwd=workspace, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "add", "-A"], cwd=workspace, check=True, capture_output=True
+            )
 
             diff_result: subprocess.CompletedProcess[str] = subprocess.run(
                 ["git", "diff", "--cached", "--stat"],
-                cwd=workspace, capture_output=True, text=True,
+                cwd=workspace,
+                capture_output=True,
+                text=True,
             )
             has_changes: bool = bool(diff_result.stdout.strip())
 
@@ -460,7 +619,11 @@ def create_agent(
             for msg in messages:
                 if hasattr(msg, "tool_calls") and getattr(msg, "tool_calls", None):
                     for tc in msg.tool_calls:  # type: ignore[union-attr]
-                        name: str = tc.get("name", "unknown") if isinstance(tc, dict) else getattr(tc, "name", "unknown")
+                        name: str = (
+                            tc.get("name", "unknown")
+                            if isinstance(tc, dict)
+                            else getattr(tc, "name", "unknown")
+                        )
                         tools_called.append(name)
                 if hasattr(msg, "name") and getattr(msg, "name", None):
                     tools_called.append(msg.name)  # type: ignore[union-attr]
@@ -468,31 +631,68 @@ def create_agent(
 
             # Incomplete detection
             incomplete_markers: list[str] = [
-                "i cannot", "i can't", "i'm unable", "could not",
-                "please verify", "you may need to", "manually",
-                "i was unable", "not able to", "failed to create",
-                "would you like me to", "shall i", "let me know",
-                "i don't have access", "permission denied",
+                "i cannot",
+                "i can't",
+                "i'm unable",
+                "could not",
+                "please verify",
+                "you may need to",
+                "manually",
+                "i was unable",
+                "not able to",
+                "failed to create",
+                "would you like me to",
+                "shall i",
+                "let me know",
+                "i don't have access",
+                "permission denied",
             ]
             output_lower: str = output_text.lower()
-            agent_admitted_failure: bool = any(marker in output_lower for marker in incomplete_markers)
-            no_meaningful_tools: bool = not any(t in unique_tools for t in ["code_edit", "test_generator", "doc_update"])
-            task_incomplete: bool = (not has_changes) and (agent_admitted_failure or no_meaningful_tools)
+            agent_admitted_failure: bool = any(
+                marker in output_lower for marker in incomplete_markers
+            )
+            no_meaningful_tools: bool = not any(
+                t in unique_tools for t in ["code_edit", "test_generator", "doc_update"]
+            )
+            task_incomplete: bool = (not has_changes) and (
+                agent_admitted_failure or no_meaningful_tools
+            )
 
             if task_incomplete:
                 return _handle_incomplete(
-                    task_request, workspace, branch_name, repo_info,
-                    output_text, unique_tools, github_tools, memory_store,
+                    task_request,
+                    workspace,
+                    branch_name,
+                    repo_info,
+                    output_text,
+                    unique_tools,
+                    github_tools,
+                    memory_store,
+                    memory_buffer,
                     progress_callback,
                 )
 
             # --- Step 5: Commit and push ---
             if progress_callback:
-                progress_callback(task_request.task_id, 75, "Committing and pushing changes")
+                progress_callback(
+                    task_request.task_id, 75, "Committing and pushing changes"
+                )
 
             commit_msg: str = f"feat: {task_request.prompt[:72]}\n\nAutomated by BulletFarm agent.\nTask: {task_request.task_id}"
-            subprocess.run(["git", "commit", "-m", commit_msg], cwd=workspace, check=True, capture_output=True, text=True)
-            subprocess.run(["git", "push", "-u", "origin", branch_name], cwd=workspace, check=True, capture_output=True, text=True)
+            subprocess.run(
+                ["git", "commit", "-m", commit_msg],
+                cwd=workspace,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                ["git", "push", "-u", "origin", branch_name],
+                cwd=workspace,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
             logger.info("Pushed branch %s to %s", branch_name, task_request.repository)
 
             # --- Step 6: Create or update PR ---
@@ -502,10 +702,15 @@ def create_agent(
             files_modified: list[str] = []
             try:
                 diff_files: subprocess.CompletedProcess[str] = subprocess.run(
-                    ["git", "diff", "--name-only", "HEAD~1"], cwd=workspace, capture_output=True, text=True,
+                    ["git", "diff", "--name-only", "HEAD~1"],
+                    cwd=workspace,
+                    capture_output=True,
+                    text=True,
                 )
                 if diff_files.returncode == 0:
-                    files_modified = [f for f in diff_files.stdout.strip().split("\n") if f]
+                    files_modified = [
+                        f for f in diff_files.stdout.strip().split("\n") if f
+                    ]
             except Exception:
                 pass
 
@@ -538,32 +743,65 @@ def create_agent(
                 pr_url = pr_result["url"]
                 logger.info("Created draft PR: %s", pr_url)
 
-            # --- Step 7: Store in ES memory ---
+            # --- Step 7: Buffer memory writes (flush on completion) ---
             if progress_callback:
-                progress_callback(task_request.task_id, 95, "Storing results in memory")
+                progress_callback(
+                    task_request.task_id, 95, "Buffering results in memory"
+                )
 
-            memory_store["store"](
-                task_id=task_request.task_id,
-                result={
-                    "agent_ref": task_request.agent_ref,
-                    "repository": task_request.repository,
-                    "prompt": task_request.prompt,
-                    "output": output_text[:2000],
-                    "skills_used": task_request.skills,
-                    "tools_called": unique_tools,
-                    "files_modified": files_modified,
-                    "branch": branch_name,
-                    "has_code_changes": True,
-                    "methodology": (
-                        f"Cloned repo, created branch '{branch_name}', "
-                        f"ran LLM agent with {len(workspace_tools)} tools, "
-                        f"called {len(unique_tools)} unique tools, "
-                        f"modified {len(files_modified)} files, "
-                        f"committed real changes, pushed and created draft PR."
+            # Buffer task_memory document
+            task_memory_doc = {
+                "agent_ref": task_request.agent_ref,
+                "repository": task_request.repository,
+                "prompt": task_request.prompt,
+                "output": output_text[:2000],
+                "skills_used": task_request.skills,
+                "tools_called": unique_tools,
+                "files_modified": files_modified,
+                "branch": branch_name,
+                "has_code_changes": True,
+                "methodology": (
+                    f"Cloned repo, created branch '{branch_name}', "
+                    f"ran LLM agent with {len(workspace_tools)} tools, "
+                    f"called {len(unique_tools)} unique tools, "
+                    f"modified {len(files_modified)} files, "
+                    f"committed real changes, pushed and created draft PR."
+                ),
+                "phase": TaskPhase.SUCCEEDED.value,
+                "pr_url": pr_url,
+            }
+            memory_buffer.add_task_memory(task_memory_doc)
+
+            # Gating logic: determine if we should write to shared_memory
+            if should_write_to_shared_memory(
+                task_status=TaskPhase.SUCCEEDED.value,
+                has_code_changes=True,
+                tools_called=unique_tools,
+            ):
+                shared_memory_doc = {
+                    "summary": f"Task '{task_request.prompt[:100]}' on {task_request.repository} — Succeeded. Modified {len(files_modified)} files using {len(unique_tools)} tools.",
+                    "context": (
+                        f"Methodology: {task_memory_doc['methodology']}\n"
+                        f"Tools used: {', '.join(unique_tools)}\n"
+                        f"Files modified: {', '.join(files_modified[:20])}\n"
+                        f"Agent output: {output_text[:800]}"
                     ),
-                    "phase": TaskPhase.SUCCEEDED.value,
-                    "pr_url": pr_url,
-                },
+                    "skills": task_request.skills,
+                    "repository": task_request.repository,
+                }
+                memory_buffer.add_shared_memory(shared_memory_doc)
+
+            # Flush all buffered documents using bulk API
+            if progress_callback:
+                progress_callback(
+                    task_request.task_id, 98, "Flushing memory to Elasticsearch"
+                )
+
+            bulk_result = memory_store["bulk_write"](memory_buffer)
+            logger.info(
+                "[Memory] Bulk write completed: success=%d, failed=%d",
+                bulk_result["success_count"],
+                bulk_result["failed_count"],
             )
 
             return TaskStatus(
@@ -578,23 +816,33 @@ def create_agent(
             logger.exception("Agent task failed: %s", task_request.task_id)
 
             exc_msg_lower: str = str(exc).lower()
-            is_rl: bool = any(m in exc_msg_lower for m in ["rate limit", "429", "too many requests", "quota"])
+            is_rl: bool = any(
+                m in exc_msg_lower
+                for m in ["rate limit", "429", "too many requests", "quota"]
+            )
 
             try:
-                memory_store["store"](
-                    task_id=task_request.task_id,
-                    result={
-                        "agent_ref": task_request.agent_ref,
-                        "repository": task_request.repository,
-                        "prompt": task_request.prompt,
-                        "error": str(exc),
-                        "skills_used": task_request.skills,
-                        "phase": TaskPhase.FAILED.value,
-                        "rate_limited": is_rl,
-                    },
+                # Buffer failure document
+                failure_doc = {
+                    "agent_ref": task_request.agent_ref,
+                    "repository": task_request.repository,
+                    "prompt": task_request.prompt,
+                    "error": str(exc),
+                    "skills_used": task_request.skills,
+                    "phase": TaskPhase.FAILED.value,
+                    "rate_limited": is_rl,
+                }
+                memory_buffer.add_task_memory(failure_doc)
+
+                # Flush buffered documents (only task_memory, no shared_memory on failure)
+                bulk_result = memory_store["bulk_write"](memory_buffer)
+                logger.info(
+                    "[Memory] Bulk write on failure: success=%d, failed=%d",
+                    bulk_result["success_count"],
+                    bulk_result["failed_count"],
                 )
-            except Exception:
-                logger.warning("Failed to store error in ES")
+            except Exception as mem_exc:
+                logger.warning("Failed to store error in ES: %s", mem_exc)
 
             return TaskStatus(
                 task_id=task_request.task_id,
@@ -616,16 +864,20 @@ def _handle_incomplete(
     unique_tools: list[str],
     github_tools: GitHubClient,
     memory_store: MemoryStore,
+    memory_buffer: MemoryWriteBuffer,
     progress_callback: ProgressCallback | None,
 ) -> TaskStatus:
     """Handle the case where the agent couldn't make meaningful changes."""
     logger.warning(
         "Task %s incomplete: tools=%s",
-        task_request.task_id, unique_tools,
+        task_request.task_id,
+        unique_tools,
     )
 
     if progress_callback:
-        progress_callback(task_request.task_id, 90, "Task incomplete — recording reason")
+        progress_callback(
+            task_request.task_id, 90, "Task incomplete — recording reason"
+        )
 
     incomplete_reason: str = (
         f"The agent was unable to complete this task. "
@@ -641,16 +893,29 @@ def _handle_incomplete(
         f.write("## Status: INCOMPLETE\n\n")
         f.write("The agent was unable to complete this task.\n\n")
         f.write(f"## Agent Analysis\n\n{output_text[:3000]}\n\n")
-        f.write(f"## Tools Called\n\n{', '.join(unique_tools) if unique_tools else 'None'}\n")
+        f.write(
+            f"## Tools Called\n\n{', '.join(unique_tools) if unique_tools else 'None'}\n"
+        )
 
     subprocess.run(["git", "add", "-A"], cwd=workspace, check=True, capture_output=True)
     subprocess.run(
-        ["git", "commit", "-m", f"chore: incomplete task analysis for {task_request.task_id}"],
-        cwd=workspace, check=True, capture_output=True, text=True,
+        [
+            "git",
+            "commit",
+            "-m",
+            f"chore: incomplete task analysis for {task_request.task_id}",
+        ],
+        cwd=workspace,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     subprocess.run(
         ["git", "push", "-u", "origin", branch_name],
-        cwd=workspace, check=True, capture_output=True, text=True,
+        cwd=workspace,
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
     pr_url: str = task_request.pr_url
@@ -684,20 +949,27 @@ def _handle_incomplete(
         f"- Close this PR or retry with a more specific prompt\n",
     )
 
-    memory_store["store"](
-        task_id=task_request.task_id,
-        result={
-            "agent_ref": task_request.agent_ref,
-            "repository": task_request.repository,
-            "prompt": task_request.prompt,
-            "output": output_text[:2000],
-            "skills_used": task_request.skills,
-            "tools_called": unique_tools,
-            "has_code_changes": False,
-            "incomplete_reason": incomplete_reason,
-            "phase": TaskPhase.INCOMPLETE.value,
-            "pr_url": pr_url,
-        },
+    # Buffer incomplete task document
+    incomplete_doc = {
+        "agent_ref": task_request.agent_ref,
+        "repository": task_request.repository,
+        "prompt": task_request.prompt,
+        "output": output_text[:2000],
+        "skills_used": task_request.skills,
+        "tools_called": unique_tools,
+        "has_code_changes": False,
+        "incomplete_reason": incomplete_reason,
+        "phase": TaskPhase.INCOMPLETE.value,
+        "pr_url": pr_url,
+    }
+    memory_buffer.add_task_memory(incomplete_doc)
+
+    # Flush buffered documents (only task_memory, no shared_memory for incomplete tasks)
+    bulk_result = memory_store["bulk_write"](memory_buffer)
+    logger.info(
+        "[Memory] Bulk write on incomplete: success=%d, failed=%d",
+        bulk_result["success_count"],
+        bulk_result["failed_count"],
     )
 
     return TaskStatus(
